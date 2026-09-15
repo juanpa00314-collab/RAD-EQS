@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAD Manutenção EQS</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- SheetJS -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        eqs: {
+                            blue: '#003366',
+                            lightBlue: '#0055a5',
+                            accent: '#f37021',
+                            bg: '#f4f6f9',
+                            card: '#ffffff',
+                            border: '#e2e8f0'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .table-sticky-header th { position: sticky; top: 0; z-index: 10; }
+    </style>
+</head>
+<body class="bg-eqs-bg font-sans text-gray-800 antialiased min-h-screen flex flex-col">
+
+    <!-- AVISO DE CONEXIÓN / PENDIENTES DE SUBIDA -->
+    <div id="sync-banner" class="bg-amber-500 text-white text-xs font-semibold py-1 px-4 text-center hidden flex items-center justify-center gap-2 shadow-inner">
+        <i class="fas fa-exclamation-triangle"></i>
+        <span>Modo Sin Conexión: <span id="pending-sync-count">0</span> actividad(es) pendiente(s) de sincronizar. Se actualizará al reconectar.</span>
+    </div>
+
+    <!-- HEADER / BARRA SUPERIOR -->
+    <header class="bg-eqs-blue text-white shadow-lg border-b border-blue-900">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-white p-2 rounded-lg text-eqs-blue font-bold text-xl tracking-wider shadow">
+                    EQS
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold leading-tight">RAD Manutenção EQS</h1>
+                    <p class="text-xs text-blue-200">Relatório de Atividades Diárias • Engie Brasil</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+                <!-- INDICADOR DE ESTADO DE RED -->
+                <div id="network-status-badge" class="text-xs bg-emerald-900/80 text-emerald-100 px-3 py-1.5 rounded-full border border-emerald-700/50 flex items-center gap-1.5">
+                    <span id="network-dot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span id="network-text">Online</span>
+                </div>
+                <span id="current-time-badge" class="text-xs bg-blue-900/60 text-blue-100 px-3 py-1.5 rounded-full border border-blue-700/50 hidden md:inline-block">
+                    <i class="far me-1 fa-clock"></i>
+                    <span id="live-clock">--:--:--</span>
+                </span>
+                <button id="btn-back-home" onclick="navigateToScreen(1)" class="hidden bg-gray-600 hover:bg-gray-700 text-white text-xs px-3 py-1.5 rounded transition flex items-center gap-1 shadow">
+                    <i class="fas fa-arrow-left"></i> Voltar à Tela Inicial
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- PANTALLA 1: INICIAL / ACCESO Y GESTIÓN DE TÉCNICOS -->
+    <div id="screen-1" class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-6">
+        <div class="bg-white rounded-xl shadow-sm border border-eqs-border p-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-4 mb-6">
+                <div>
+                    <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                        <i class="fas fa-users text-eqs-lightBlue"></i>
+                        <span>Selecione seu Perfil de Técnico</span>
+                    </h2>
+                    <p class="text-xs text-gray-500 mt-1">Cada técnico possui sua própria base de dados alimentada a partir da Fila 5.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                    <button onclick="exportAllTechniciansToSingleExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-4 py-2 rounded-lg font-semibold transition flex items-center gap-2 shadow-sm">
+                        <i class="fas fa-file-excel text-sm"></i> Exportar RAD Completo (Todas as Hojas)
+                    </button>
+                    <button onclick="openUserModal()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-4 py-2 rounded-lg font-semibold transition flex items-center gap-2 shadow-sm">
+                        <i class="fas fa-user-plus"></i> Adicionar Técnico
+                    </button>
+                </div>
+            </div>
+
+            <!-- GRID DE TÉCNICOS -->
+            <div id="technicians-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                <!-- Injetado via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- PANTALLA 2: FORMULARIO Y BASE DE DATOS LOCAL -->
+    <main id="screen-2" class="hidden flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-col gap-6">
+        
+        <!-- FORMULÁRIO DE REGISTRO DE ATIVIDADE -->
+        <section class="bg-white rounded-xl shadow-sm border border-eqs-border p-5">
+            <div class="flex items-center justify-between mb-4 pb-2 border-b border-gray-100">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-edit text-eqs-accent"></i>
+                    <h2 class="font-semibold text-gray-800 text-base">Novo Registro - Inserção na Fila 5+</h2>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div id="current-user-avatar" class="w-7 h-7 rounded-full bg-orange-500 text-white font-bold flex items-center justify-center text-xs overflow-hidden border border-orange-300">
+                    </div>
+                    <span id="active-user-badge" class="text-xs bg-orange-100 text-orange-800 font-semibold px-2.5 py-1 rounded-full border border-orange-200">
+                        Técnico: <span id="current-user-name">--</span>
+                    </span>
+                </div>
+            </div>
+
+            <form id="activity-form" onsubmit="handleFormSubmit(event)" class="space-y-4">
+                <input type="hidden" id="editing-id" value="">
+
+                <!-- PARÂMETROS GERAIS -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 bg-gray-50 p-3.5 rounded-lg border border-gray-200/80">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Cliente</label>
+                        <input type="text" id="input-cliente" value="ENGIE BRASIL" required class="w-full text-sm bg-white border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-eqs-lightBlue focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Data da Atividade (Coluna A)</label>
+                        <input type="date" id="input-date" required class="w-full text-sm bg-white border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-eqs-lightBlue focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Nome do Técnico (Coluna B)</label>
+                        <input type="text" id="input-user-name" required class="w-full text-sm bg-white border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-eqs-lightBlue focus:outline-none">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Início (S)</label>
+                            <input type="time" id="input-start-time" required class="w-full text-sm bg-white border border-gray-300 rounded-md px-2 py-2 focus:ring-2 focus:ring-eqs-lightBlue focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Fim (T)</label>
+                            <input type="time" id="input-end-time" required class="w-full text-sm bg-white border border-gray-300 rounded-md px-2 py-2 focus:ring-2 focus:ring-eqs-lightBlue focus:outline-none">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CAMPO DE DESCRIÇÃO -->
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">Descrição Detalhada da Atividade (Coluna U)</label>
+                    <div class="relative">
+                        <textarea id="input-description" rows="2" required placeholder="Ex: Vistoria nos nobreaks e geradores..." oninput="analyzeDescriptionAndCheckboxes()" class="w-full text-sm border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-eqs-lightBlue focus:outline-none transition"></textarea>
+                    </div>
+                </div>
+
+                <!-- MATRIZ DE CHECKBOXES -->
+                <div class="border border-gray-200 rounded-lg overflow-hidden bg-gray-50/50 p-3">
+                    <div class="text-xs font-bold text-gray-700 mb-2 uppercase tracking-wider flex items-center justify-between">
+                        <span>Classificação Técnica de Impacto (Colunas C a R)</span>
+                        <button type="button" onclick="clearAllCheckboxes()" class="text-[11px] text-gray-500 hover:text-red-600 underline">Limpar seleções</button>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 text-xs">
+                        <div class="bg-white p-2.5 rounded border border-blue-100 shadow-sm">
+                            <span class="font-bold text-eqs-blue block border-b border-blue-100 pb-1 mb-2">D.C (Data Center)</span>
+                            <div class="grid grid-cols-2 gap-2">
+                                <label class="flex items-center space-x-1.5 cursor-pointer"><input type="checkbox" id="chk_dc_ar" class="rounded text-eqs-blue"> <span>Ar (C)</span></label>
+                                <label class="flex items-center space-x-1.5 cursor-pointer"><input type="checkbox" id="chk_dc_energia" class="rounded text-eqs-blue"> <span>Energia (D)</span></label>
+                                <label class="flex items-center space-x-1.5 cursor-pointer"><input type="checkbox" id="chk_dc_cabeamento" class="rounded text-eqs-blue"> <span>Cabeamento (E)</span></label>
+                                <label class="flex items-center space-x-1.5 cursor-pointer"><input type="checkbox" id="chk_dc_preventivo" class="rounded text-eqs-blue"> <span>Preventivo (F)</span></label>
+                                <label class="flex items-center space-x-1.5 cursor-pointer"><input type="checkbox" id="chk_dc_mobiliario" class="rounded text-eqs-blue"> <span>Mobiliário (G)</span></label>
+                                <label class="flex items-center space-x-1.5 cursor-pointer"><input type="checkbox" id="chk_dc_infraestrutura" class="rounded text-eqs-blue"> <span>Infraestrutura (H)</span></label>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-2.5 rounded border border-emerald-100 shadow-sm">
+                            <span class="font-bold text-emerald-800 block border-b border-emerald-100 pb-1 mb-2">Prédio</span>
+                            <div class="grid grid-cols-2 gap-2">
+                                <label class="flex items-center space-x-1.5 cursor-pointer"><input type="checkbox" id="chk_predio_ar" class="rounded text-emerald-600"> <span>Ar (I)</span></label>
+                                <label class="flex items-center space-x-1.5 cursor-pointer"><input type="checkbox" id="chk_predio_energia" class="rounded text-emerald-600"> <span>Energia (J)</span></label>
+                                <label class="flex items-center space-x-1.5 cursor-pointer"><input type="checkbox" id="chk_predio_cabeamento" class="rounded text-emerald-600"> <span>Cabeamento (K)</span></label>
+                                <label class="flex items-center space-x-1.5 cursor-pointer"><input type="checkbox" id="chk_predio_hidraulica" class="rounded text-emerald-600"> <span>Hidráulica (L)</span></label>
+                                <label class="flex items-center space-x-1.5 cursor-pointer"><input type="checkbox" id="chk_predio_mobiliario" class="rounded text-emerald-600"> <span>Mobiliário (M)</span></label>
+                                <label class="flex items-center space-x-1.5 cursor-pointer"><input type="checkbox" id="chk_predio_infraestrutura" class="rounded text-emerald-600"> <span>Infraestrutura (N)</span></label>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-2.5 rounded border border-amber-100 shadow-sm">
+                            <span class="font-bold text-amber-800 block border-b border-amber-100 pb-1 mb-2">Atividades (Tipo)</span>
+                            <div class="grid grid-cols-2 gap-2">
+                                <label class="flex items-center space-x-1.5 cursor-pointer"><input type="checkbox" id="chk_tipo_ativ_preditiva" class="rounded text-amber-600"> <span>Preditiva (O)</span></label>
+                                <label class="flex items-center space-x-1.5 cursor-pointer"><input type="checkbox" id="chk_tipo_ativ_preventiva" class="rounded text-amber-600"> <span>Preventiva (P)</span></label>
+                                <label class="flex items-center space-x-1.5 cursor-pointer"><input type="checkbox" id="chk_tipo_ativ_corretiva" class="rounded text-amber-600"> <span>Corretiva (Q)</span></label>
+                                <label class="flex items-center space-x-1.5 cursor-pointer"><input type="checkbox" id="chk_tipo_ativ_implantacao" class="rounded text-amber-600"> <span>Implantação (R)</span></label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BOTAO DE SALVAR -->
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" id="btn-cancel-edit" onclick="resetForm()" class="hidden bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg transition">
+                        Cancelar Edição
+                    </button>
+                    <button type="submit" class="bg-eqs-lightBlue hover:bg-blue-700 text-white font-semibold text-sm px-6 py-2.5 rounded-lg shadow-md transition flex items-center gap-2">
+                        <i class="fas fa-save"></i>
+                        <span id="btn-save-label">Salvar na Base Local</span>
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- VISUALIZAÇÃO DA BASE DE DADOS -->
+        <section class="bg-white rounded-xl shadow-sm border border-eqs-border p-5 flex flex-col gap-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-3">
+                <div>
+                    <h2 class="font-bold text-gray-800 text-base flex items-center gap-2">
+                        <i class="fas fa-database text-eqs-blue"></i>
+                        <span>Base de Dados Local do Técnico:</span>
+                        <span id="table-user-title" class="text-eqs-lightBlue">--</span>
+                    </h2>
+                    <p class="text-xs text-gray-500">Registros alimentados a partir da Fila 5.</p>
+                </div>
+                
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <button onclick="exportToGoogleSheetsFormat()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-4 py-2 rounded-lg font-semibold transition flex items-center justify-center gap-2 shadow-sm">
+                        <i class="fas fa-file-excel text-white text-sm"></i> Exportar Hoja de Cálculo (.xlsx)
+                    </button>
+                    <div class="relative w-full sm:w-60">
+                        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                        <input type="text" id="search-input" oninput="renderTable()" placeholder="Buscar na descrição..." class="w-full text-xs bg-gray-50 border border-gray-300 pl-8 pr-3 py-2 rounded-lg focus:ring-2 focus:ring-eqs-lightBlue focus:bg-white focus:outline-none">
+                    </div>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto border border-gray-200 rounded-lg shadow-inner max-h-[550px]">
+                <table class="w-full text-left text-[11px] border-collapse min-w-[1300px]">
+                    <thead class="bg-gray-800 text-white uppercase text-[10px] tracking-wider table-sticky-header">
+                        <tr>
+                            <th class="px-2 py-1 bg-gray-900 border-r border-gray-700 text-center w-12">Fila</th>
+                            <th colspan="2" class="px-2 py-1.5 border-b border-r border-gray-700 bg-gray-900 text-center">Básico</th>
+                            <th colspan="6" class="px-2 py-1.5 border-b border-r border-gray-700 bg-blue-900 text-center">D.C</th>
+                            <th colspan="6" class="px-2 py-1.5 border-b border-r border-gray-700 bg-emerald-900 text-center">Prédio</th>
+                            <th colspan="4" class="px-2 py-1.5 border-b border-r border-gray-700 bg-amber-900 text-center">Atividades</th>
+                            <th colspan="2" class="px-2 py-1.5 border-b border-r border-gray-700 bg-purple-900 text-center">Tempo da Atividade</th>
+                            <th class="px-2 py-1.5 border-b border-r border-gray-700 bg-gray-900 text-center">Atividades</th>
+                            <th class="px-2 py-1.5 border-b border-gray-700 bg-gray-900 text-center">Ações</th>
+                        </tr>
+                        <tr class="bg-gray-700 text-gray-200">
+                            <th class="p-2 border-r border-gray-600 text-center">#</th>
+                            <th class="p-2 border-r border-gray-600 text-center">Data (A)</th>
+                            <th class="p-2 border-r border-gray-600 text-center">Técnico (B)</th>
+                            <th class="p-1 border-r border-gray-600 text-center w-8">Ar (C)</th>
+                            <th class="p-1 border-r border-gray-600 text-center w-8">Energia (D)</th>
+                            <th class="p-1 border-r border-gray-600 text-center w-8">Cabeam. (E)</th>
+                            <th class="p-1 border-r border-gray-600 text-center w-8">Prevent. (F)</th>
+                            <th class="p-1 border-r border-gray-600 text-center w-8">Mobiliá. (G)</th>
+                            <th class="p-1 border-r border-gray-600 text-center w-8">Infraest. (H)</th>
+                            <th class="p-1 border-r border-gray-600 text-center w-8">Ar (I)</th>
+                            <th class="p-1 border-r border-gray-600 text-center w-8">Energia (J)</th>
+                            <th class="p-1 border-r border-gray-600 text-center w-8">Cabeam. (K)</th>
+                            <th class="p-1 border-r border-gray-600 text-center w-8">Hidrául. (L)</th>
+                            <th class="p-1 border-r border-gray-600 text-center w-8">Mobiliá. (M)</th>
+                            <th class="p-1 border-r border-gray-600 text-center w-8">Infraest. (N)</th>
+                            <th class="p-1 border-r border-gray-600 text-center w-8">Predit. (O)</th>
+                            <th class="p-1 border-r border-gray-600 text-center w-8">Prevent. (P)</th>
+                            <th class="p-1 border-r border-gray-600 text-center w-8">Corret. (Q)</th>
+                            <th class="p-1 border-r border-gray-600 text-center w-8">Implant. (R)</th>
+                            <th class="p-2 border-r border-gray-600 text-center">Início (S)</th>
+                            <th class="p-2 border-r border-gray-600 text-center">Fim (T)</th>
+                            <th class="p-2 border-r border-gray-600 min-w-[250px]">Atividades (U)</th>
+                            <th class="p-2 text-center w-20">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="activities-table-body" class="divide-y divide-gray-200 bg-white">
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <!-- MODAL DE TÉCNICO -->
+    <div id="modal-user" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 relative">
+            <h3 id="modal-user-title" class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <i class="fas fa-user-gear text-eqs-lightBlue"></i>
+                <span>Perfil do Técnico</span>
+            </h3>
+            <form id="form-user" onsubmit="saveUserModal(event)" class="space-y-4">
+                <input type="hidden" id="modal-original-name" value="">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">Nome do Técnico</label>
+                    <input type="text" id="modal-user-name" required placeholder="Ex: João Silva" class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-eqs-lightBlue focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-2">Foto de Perfil</label>
+                    <div class="flex items-center gap-4">
+                        <div id="modal-avatar-preview" class="w-16 h-16 rounded-full bg-gray-200 text-gray-600 font-bold flex items-center justify-center text-xl overflow-hidden border-2 border-eqs-lightBlue shadow">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <input type="file" id="modal-file-input" accept="image/*" class="hidden" onchange="handleFileSelect(event)">
+                            <button type="button" onclick="document.getElementById('modal-file-input').click()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs px-3 py-1.5 rounded border border-gray-300 transition flex items-center gap-1.5">
+                                <i class="fas fa-image text-blue-600"></i> Galeria de Fotos
+                            </button>
+                            <button type="button" id="btn-remove-avatar" onclick="removeAvatar()" class="text-[11px] text-red-500 hover:underline text-left hidden">
+                                Remover Foto
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-2 pt-4 border-t border-gray-100">
+                    <button type="button" onclick="closeUserModal()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg transition">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="bg-eqs-lightBlue hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-lg shadow transition">
+                        Salvar Técnico Localmente
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="bg-white border-t border-gray-200 py-3 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 text-center text-xs text-gray-500">
+            RAD Manutenção EQS • ENGIE Brasil • Sincronização Online/Offline Automática (.xlsx)
+        </div>
+    </footer>
+
+    <!-- JAVASCRIPT APLICATIVO -->
+    <script>
+        function generateId() {
+            return 'id_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        const BASE_HEADER_STRUCTURE = [
+            ["D.C", "", "", "", "", "", "PRÉDIO", "", "", "", "", "", "ATIVIDADES", "", "", "", "TEMPO DA ATIVIDADE", "", "ATIVIDADES"],
+            ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "CLIENTE", "ENGIE BRASIL"],
+            ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "MÊS", "MIO/2026"],
+            ["Data", "TÉCNICO", "Ar", "Energia", "Cabeamento", "Preventivo", "Mobiliário", "Infraestrutura", "Ar", "Energia", "Cabeamento", "Hidráulica", "Mobiliário", "Infraestrutura", "Preditiva", "Preventiva", "Corretiva", "Implantação", "Início", "Fim", "Atividades"]
+        ];
+
+        function createActivityRecord(data = {}) {
+            return {
+                id: data.id || generateId(),
+                cliente: data.cliente || "ENGIE BRASIL",
+                data: data.data || "",
+                tecnico: data.tecnico || "",
+                categorias: {
+                    dc: {
+                        ar: data.categorias?.dc?.ar || false,
+                        energia: data.categorias?.dc?.energia || false,
+                        cabeamento: data.categorias?.dc?.cabeamento || false,
+                        preventivo: data.categorias?.dc?.preventivo || false,
+                        mobiliario: data.categorias?.dc?.mobiliario || false,
+                        infraestrutura: data.categorias?.dc?.infraestrutura || false
+                    },
+                    predio: {
+                        ar: data.categorias?.predio?.ar || false,
+                        energia: data.categorias?.predio?.energia || false,
+                        cabeamento: data.categorias?.predio?.cabeamento || false,
+                        hidraulica: data.categorias?.predio?.hidraulica || false,
+                        mobiliario: data.categorias?.predio?.mobiliario || false,
+                        infraestrutura: data.categorias?.predio?.infraestrutura || false
+                    },
+                    tipo_atividade: {
+                        preditiva: data.categorias?.tipo_atividade?.preditiva || false,
+                        preventiva: data.categorias?.tipo_atividade?.preventiva || false,
+                        corretiva: data.categorias?.tipo_atividade?.corretiva || false,
+                        implantacao: data.categorias?.tipo_atividade?.implantacao || false
+                    }
+                },
+                tempo_atividade: {
+                    inicio: data.tempo_atividade?.inicio || "",
+                    fim: data.tempo_atividade?.fim || ""
+                },
+                atividades_descricao: data.atividades_descricao || ""
+            };
+        }
+
+        const DEFAULT_USERS = [
+            { name: 'Pablo', avatar: null },
+            { name: 'Luiz', avatar: null }
+        ];
+
+        const ALL_CHECKBOX_KEYS = [
+            'dc_ar', 'dc_energia', 'dc_cabeamento', 'dc_preventivo', 'dc_mobiliario', 'dc_infraestrutura',
+            'predio_ar', 'predio_energia', 'predio_cabeamento', 'predio_hidraulica', 'predio_mobiliario', 'predio_infraestrutura',
+            'tipo_ativ_preditiva', 'tipo_ativ_preventiva', 'tipo_ativ_corretiva', 'tipo_ativ_implantacao'
+        ];
+
+        const BASE_AUTOCOMPLETE_RULES = [
+            { keywords: ['dds', 'reunião', 'treinamento', 'curso', 'eqs online', 'palestra'], flags: { tipo_ativ_preventiva: true } },
+            { keywords: ['vistoria', 'inspeção', 'ronda', 'conferência', 'laço preventivo', 'gerador', 'nobreak'], flags: { tipo_ativ_preventiva: true } },
+            { keywords: ['troca de lâmpada', 'concerto', 'conserto', 'desentup', 'reparo', 'limpeza', 'substituição', 'vazamento'], flags: { tipo_ativ_corretiva: true } },
+            { keywords: ['instalação', 'implantacao', 'implantação', 'montagem', 'passagem de cabo', 'lançamento'], flags: { tipo_ativ_implantacao: true } },
+            { keywords: ['data center', 'dc', 'laço preventivo do data center'], flags: { dc_preventivo: true } },
+            { keywords: ['banheiro', 'sanitário', 'pia', 'torneira', 'encanamento', 'hidráulica', 'esgoto', 'tubulação'], flags: { predio_hidraulica: true } },
+            { keywords: ['lampada', 'lâmpada', 'luminária', 'disjuntor', 'quadro elétrico', 'energia', 'tomada', 'iluminação', 'nobreak', 'gerador'], flags: { predio_energia: true } },
+            { keywords: ['persiana', 'armário', 'mesa', 'porta', 'fechadura', 'forro', 'cadeira', 'mobiliário', 'móvel'], flags: { predio_mobiliario: true } },
+            { keywords: ['ar condicionado', 'chiller', 'fancoil', 'evaporadora', 'refrigeração', 'split'], flags: { predio_ar: true } },
+            { keywords: ['cabo', 'rede', 'cabeamento', 'fibra', 'rack', 'patch panel', 'carregador'], flags: { predio_cabeamento: true } },
+            { keywords: ['organização', 'heliponto', 'carregando materiais', 'sala de manutenção', 'transporte', 'descarte'], flags: { predio_infraestrutura: true } }
+        ];
+
+        let appState = {
+            users: [],
+            activities: {},
+            currentUser: 'Pablo',
+            learnedRules: {},
+            currentScreen: 1,
+            pendingSyncQueue: []
+        };
+
+        let tempAvatarData = null;
+
+        function getChronologicalActivities(userName) {
+            const list = [...(appState.activities[userName] || [])];
+            list.sort((a, b) => {
+                const dateA = a.data || '';
+                const dateB = b.data || '';
+                if (dateA !== dateB) return dateA.localeCompare(dateB);
+                const timeA = a.tempo_atividade?.inicio || '';
+                const timeB = b.tempo_atividade?.fim || '';
+                return timeA.localeCompare(timeB);
+            });
+            return list;
+        }
+
+        function initApp() {
+            loadLocalStorage();
+            startLiveClock();
+            initNetworkListeners();
+            
+            if (!appState.users || appState.users.length === 0) {
+                appState.users = DEFAULT_USERS;
+            }
+
+            appState.users.forEach(u => {
+                if (!appState.activities[u.name]) {
+                    appState.activities[u.name] = [];
+                }
+            });
+
+            saveLocalStorage();
+            renderTechniciansGrid();
+            updateSyncUI();
+            navigateToScreen(appState.currentScreen || 1);
+        }
+
+        function loadLocalStorage() {
+            try {
+                const saved = localStorage.getItem('rad_eqs_state');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    appState = { ...appState, ...parsed };
+                }
+            } catch (e) {
+                console.error("Erro ao carregar do LocalStorage:", e);
+            }
+        }
+
+        function saveLocalStorage() {
+            try {
+                localStorage.setItem('rad_eqs_state', JSON.stringify(appState));
+                updateSyncUI();
+            } catch (e) {
+                console.error("Erro ao salvar no LocalStorage:", e);
+            }
+        }
+
+        // --- GESTIÓN DE RED Y SINCRONIZACIÓN OFFLINE ---
+        function initNetworkListeners() {
+            window.addEventListener('online', handleConnectionRestored);
+            window.addEventListener('offline', handleConnectionLost);
+            updateNetworkStatusUI(navigator.onLine);
+            
+            if (navigator.onLine && appState.pendingSyncQueue && appState.pendingSyncQueue.length > 0) {
+                processSyncQueue();
+            }
+        }
+
+        function handleConnectionLost() {
+            updateNetworkStatusUI(false);
+        }
+
+        function handleConnectionRestored() {
+            updateNetworkStatusUI(true);
+            if (appState.pendingSyncQueue && appState.pendingSyncQueue.length > 0) {
+                processSyncQueue();
+            }
+        }
+
+        function updateNetworkStatusUI(isOnline) {
+            const badge = document.getElementById('network-status-badge');
+            const dot = document.getElementById('network-dot');
+            const text = document.getElementById('network-text');
+
+            if (isOnline) {
+                badge.className = "text-xs bg-emerald-900/80 text-emerald-100 px-3 py-1.5 rounded-full border border-emerald-700/50 flex items-center gap-1.5";
+                dot.className = "w-2 h-2 rounded-full bg-emerald-400 animate-pulse";
+                text.textContent = "Online";
+            } else {
+                badge.className = "text-xs bg-red-900/80 text-red-100 px-3 py-1.5 rounded-full border border-red-700/50 flex items-center gap-1.5";
+                dot.className = "w-2 h-2 rounded-full bg-red-400";
+                text.textContent = "Sin Conexión";
+            }
+        }
+
+        function updateSyncUI() {
+            const banner = document.getElementById('sync-banner');
+            const countEl = document.getElementById('pending-sync-count');
+            const queueLength = (appState.pendingSyncQueue || []).length;
+
+            if (queueLength > 0) {
+                countEl.textContent = queueLength;
+                banner.classList.remove('hidden');
+            } else {
+                banner.classList.add('hidden');
+            }
+        }
+
+        function processSyncQueue() {
+            if (!appState.pendingSyncQueue || appState.pendingSyncQueue.length === 0) return;
+            
+            console.log("Sincronizando registros pendientes con el servidor/red...", appState.pendingSyncQueue);
+            
+            setTimeout(() => {
+                appState.pendingSyncQueue = [];
+                saveLocalStorage();
+                alert("¡Conexión restablecida! Todas las actividades pendientes se han sincronizado correctamente.");
+            }, 800);
+        }
+
+        function startLiveClock() {
+            function update() {
+                const now = new Date();
+                const clockEl = document.getElementById('live-clock');
+                if (clockEl) clockEl.textContent = now.toLocaleTimeString('pt-BR');
+            }
+            update();
+            setInterval(update, 1000);
+        }
+
+        function navigateToScreen(screenNumber) {
+            appState.currentScreen = screenNumber;
+            saveLocalStorage();
+
+            const s1 = document.getElementById('screen-1');
+            const s2 = document.getElementById('screen-2');
+            const btnBack = document.getElementById('btn-back-home');
+
+            if (screenNumber === 1) {
+                s1.classList.remove('hidden');
+                s2.classList.add('hidden');
+                s2.classList.remove('flex');
+                btnBack.classList.add('hidden');
+                renderTechniciansGrid();
+            } else {
+                s1.classList.add('hidden');
+                s2.classList.remove('hidden');
+                s2.classList.add('flex');
+                btnBack.classList.remove('hidden');
+                setupUserScreen();
+            }
+        }
+
+        function openTechnicianDatabase(userName) {
+            appState.currentUser = userName;
+            saveLocalStorage();
+            navigateToScreen(2);
+        }
+
+        function renderTechniciansGrid() {
+            const grid = document.getElementById('technicians-grid');
+            if (!grid) return;
+
+            grid.innerHTML = appState.users.map(user => {
+                const totalAtiv = (appState.activities[user.name] || []).length;
+                const avatarHtml = user.avatar 
+                    ? `<img src="${user.avatar}" class="w-full h-full object-cover">`
+                    : `<span class="text-2xl font-bold text-eqs-blue">${escapeHtml(user.name.charAt(0).toUpperCase())}</span>`;
+
+                return `
+                    <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition flex flex-col items-center text-center relative group">
+                        <div class="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                            <button onclick="openUserModal('${escapeHtml(user.name)}')" class="text-gray-400 hover:text-blue-600 p-1" title="Editar Perfil">
+                                <i class="fas fa-pen text-xs"></i>
+                            </button>
+                            <button onclick="deleteUser('${escapeHtml(user.name)}')" class="text-gray-400 hover:text-red-600 p-1" title="Excluir Técnico">
+                                <i class="fas fa-trash text-xs"></i>
+                            </button>
+                        </div>
+                        <div class="w-20 h-20 rounded-full bg-blue-50 border-2 border-eqs-lightBlue flex items-center justify-center overflow-hidden mb-3 shadow-inner">
+                            ${avatarHtml}
+                        </div>
+                        <h3 class="font-bold text-gray-800 text-lg mb-1">${escapeHtml(user.name)}</h3>
+                        <p class="text-xs text-gray-500 mb-4">${totalAtiv} registro(s) na Fila 5+</p>
+                        <button onclick="openTechnicianDatabase('${escapeHtml(user.name)}')" class="w-full bg-eqs-lightBlue hover:bg-blue-700 text-white text-xs font-semibold py-2.5 px-3 rounded-lg transition flex items-center justify-center gap-2 shadow">
+                            <i class="fas fa-database"></i> Base de Dados de ${escapeHtml(user.name)}
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function setupUserScreen() {
+            const user = appState.currentUser || 'Pablo';
+            document.getElementById('current-user-name').textContent = user;
+            document.getElementById('table-user-title').textContent = user;
+            document.getElementById('input-user-name').value = user;
+
+            const userData = appState.users.find(u => u.name === user);
+            const avatarContainer = document.getElementById('current-user-avatar');
+            if (userData && userData.avatar) {
+                avatarContainer.innerHTML = `<img src="${userData.avatar}" class="w-full h-full object-cover">`;
+            } else {
+                avatarContainer.innerHTML = user.charAt(0).toUpperCase();
+            }
+
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('input-date').value = today;
+
+            resetForm();
+            renderTable();
+        }
+
+        function openUserModal(editName = null) {
+            const modal = document.getElementById('modal-user');
+            const title = document.getElementById('modal-user-title');
+            const nameInput = document.getElementById('modal-user-name');
+            const origInput = document.getElementById('modal-original-name');
+
+            tempAvatarData = null;
+
+            if (editName) {
+                title.querySelector('span').textContent = "Editar Perfil do Técnico";
+                const user = appState.users.find(u => u.name === editName);
+                nameInput.value = user.name;
+                origInput.value = user.name;
+                tempAvatarData = user.avatar || null;
+            } else {
+                title.querySelector('span').textContent = "Adicionar Novo Técnico";
+                nameInput.value = "";
+                origInput.value = "";
+            }
+
+            updateAvatarPreview();
+            modal.classList.remove('hidden');
+        }
+
+        function closeUserModal() {
+            document.getElementById('modal-user').classList.add('hidden');
+        }
+
+        function updateAvatarPreview() {
+            const preview = document.getElementById('modal-avatar-preview');
+            const btnRemove = document.getElementById('btn-remove-avatar');
+            if (tempAvatarData) {
+                preview.innerHTML = `<img src="${tempAvatarData}" class="w-full h-full object-cover">`;
+                btnRemove.classList.remove('hidden');
+            } else {
+                preview.innerHTML = `<i class="fas fa-user"></i>`;
+                btnRemove.classList.add('hidden');
+            }
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    tempAvatarData = e.target.result;
+                    updateAvatarPreview();
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function removeAvatar() {
+            tempAvatarData = null;
+            updateAvatarPreview();
+        }
+
+        function saveUserModal(event) {
+            event.preventDefault();
+            const newName = document.getElementById('modal-user-name').value.trim();
+            const origName = document.getElementById('modal-original-name').value;
+
+            if (!newName) return;
+
+            if (origName) {
+                const index = appState.users.findIndex(u => u.name === origName);
+                if (index !== -1) {
+                    appState.users[index] = { name: newName, avatar: tempAvatarData };
+                    if (appState.activities[origName]) {
+                        appState.activities[newName] = appState.activities[origName].map(a => ({ ...a, tecnico: newName }));
+                        delete appState.activities[origName];
+                    }
+                }
+            } else {
+                if (appState.users.some(u => u.name.toLowerCase() === newName.toLowerCase())) {
+                    alert("Já existe um técnico com este nome.");
+                    return;
+                }
+                appState.users.push({ name: newName, avatar: tempAvatarData });
+                appState.activities[newName] = [];
+            }
+
+            saveLocalStorage();
+            closeUserModal();
+            renderTechniciansGrid();
+        }
+
+        function deleteUser(userName) {
+            if (confirm(`Deseja realmente excluir a base de dados do técnico ${userName}?`)) {
+                appState.users = appState.users.filter(u => u.name !== userName);
+                delete appState.activities[userName];
+                saveLocalStorage();
+                renderTechniciansGrid();
+            }
+        }
+
+        function clearAllCheckboxes() {
+            ALL_CHECKBOX_KEYS.forEach(key => {
+                const el = document.getElementById(`chk_${key}`);
+                if (el) el.checked = false;
+            });
+        }
+
+        function analyzeDescriptionAndCheckboxes() {
+            const desc = document.getElementById('input-description').value.toLowerCase();
+            clearAllCheckboxes();
+
+            BASE_AUTOCOMPLETE_RULES.forEach(rule => {
+                const matches = rule.keywords.some(kw => desc.includes(kw));
+                if (matches) {
+                    Object.keys(rule.flags).forEach(key => {
+                        const el = document.getElementById(`chk_${key}`);
+                        if (el) el.checked = true;
+                    });
+                }
+            });
+        }
+
+        function getFormData() {
+            const editingId = document.getElementById('editing-id').value;
+            return createActivityRecord({
+                id: editingId || generateId(),
+                cliente: document.getElementById('input-cliente').value,
+                data: document.getElementById('input-date').value,
+                tecnico: document.getElementById('input-user-name').value,
+                categorias: {
+                    dc: {
+                        ar: document.getElementById('chk_dc_ar').checked,
+                        energia: document.getElementById('chk_dc_energia').checked,
+                        cabeamento: document.getElementById('chk_dc_cabeamento').checked,
+                        preventivo: document.getElementById('chk_dc_preventivo').checked,
+                        mobiliario: document.getElementById('chk_dc_mobiliario').checked,
+                        infraestrutura: document.getElementById('chk_dc_infraestrutura').checked
+                    },
+                    predio: {
+                        ar: document.getElementById('chk_predio_ar').checked,
+                        energia: document.getElementById('chk_predio_energia').checked,
+                        cabeamento: document.getElementById('chk_predio_cabeamento').checked,
+                        hidraulica: document.getElementById('chk_predio_hidraulica').checked,
+                        mobiliario: document.getElementById('chk_predio_mobiliario').checked,
+                        infraestrutura: document.getElementById('chk_predio_infraestrutura').checked
+                    },
+                    tipo_atividade: {
+                        preditiva: document.getElementById('chk_tipo_ativ_preditiva').checked,
+                        preventiva: document.getElementById('chk_tipo_ativ_preventiva').checked,
+                        corretiva: document.getElementById('chk_tipo_ativ_corretiva').checked,
+                        implantacao: document.getElementById('chk_tipo_ativ_implantacao').checked
+                    }
+                },
+                tempo_atividade: {
+                    inicio: document.getElementById('input-start-time').value,
+                    fim: document.getElementById('input-end-time').value
+                },
+                atividades_descricao: document.getElementById('input-description').value
+            });
+        }
+
+        function resetForm() {
+            document.getElementById('editing-id').value = "";
+            document.getElementById('input-start-time').value = "";
+            document.getElementById('input-end-time').value = "";
+            document.getElementById('input-description').value = "";
+            clearAllCheckboxes();
+            document.getElementById('btn-save-label').textContent = "Salvar na Base Local";
+            document.getElementById('btn-cancel-edit').classList.add('hidden');
+        }
+
+        function handleFormSubmit(event) {
+            event.preventDefault();
+
+            const record = getFormData();
+            const userName = appState.currentUser;
+
+            if (!appState.activities[userName]) {
+                appState.activities[userName] = [];
+            }
+
+            const existingIdx = appState.activities[userName].findIndex(a => a.id === record.id);
+            if (existingIdx !== -1) {
+                appState.activities[userName][existingIdx] = record;
+            } else {
+                appState.activities[userName].push(record);
+            }
+
+            if (!navigator.onLine) {
+                appState.pendingSyncQueue.push({ type: 'SAVE', record, timestamp: new Date().toISOString() });
+            }
+
+            saveLocalStorage();
+            renderTable();
+            resetForm();
+        }
+
+        function editActivity(id) {
+            const userName = appState.currentUser;
+            const record = (appState.activities[userName] || []).find(a => a.id === id);
+            if (!record) return;
+
+            document.getElementById('editing-id').value = record.id;
+            document.getElementById('input-cliente').value = record.cliente || "ENGIE BRASIL";
+            document.getElementById('input-date').value = record.data;
+            document.getElementById('input-user-name').value = record.tecnico;
+            document.getElementById('input-start-time').value = record.tempo_atividade.inicio;
+            document.getElementById('input-end-time').value = record.tempo_atividade.fim;
+            document.getElementById('input-description').value = record.atividades_descricao;
+
+            document.getElementById('chk_dc_ar').checked = !!record.categorias?.dc?.ar;
+            document.getElementById('chk_dc_energia').checked = !!record.categorias?.dc?.energia;
+            document.getElementById('chk_dc_cabeamento').checked = !!record.categorias?.dc?.cabeamento;
+            document.getElementById('chk_dc_preventivo').checked = !!record.categorias?.dc?.preventivo;
+            document.getElementById('chk_dc_mobiliario').checked = !!record.categorias?.dc?.mobiliario;
+            document.getElementById('chk_dc_infraestrutura').checked = !!record.categorias?.dc?.infraestrutura;
+
+            document.getElementById('chk_predio_ar').checked = !!record.categorias?.predio?.ar;
+            document.getElementById('chk_predio_energia').checked = !!record.categorias?.predio?.energia;
+            document.getElementById('chk_predio_cabeamento').checked = !!record.categorias?.predio?.cabeamento;
+            document.getElementById('chk_predio_hidraulica').checked = !!record.categorias?.predio?.hidraulica;
+            document.getElementById('chk_predio_mobiliario').checked = !!record.categorias?.predio?.mobiliario;
+            document.getElementById('chk_predio_infraestrutura').checked = !!record.categorias?.predio?.infraestrutura;
+
+            document.getElementById('chk_tipo_ativ_preditiva').checked = !!record.categorias?.tipo_atividade?.preditiva;
+            document.getElementById('chk_tipo_ativ_preventiva').checked = !!record.categorias?.tipo_atividade?.preventiva;
+            document.getElementById('chk_tipo_ativ_corretiva').checked = !!record.categorias?.tipo_atividade?.corretiva;
+            document.getElementById('chk_tipo_ativ_implantacao').checked = !!record.categorias?.tipo_atividade?.implantacao;
+
+            document.getElementById('btn-save-label').textContent = "Atualizar Registro (Fila 5+)";
+            document.getElementById('btn-cancel-edit').classList.remove('hidden');
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function deleteActivity(id) {
+            if (confirm("Deseja realmente excluir esta linha da base de dados?")) {
+                const userName = appState.currentUser;
+                appState.activities[userName] = (appState.activities[userName] || []).filter(a => a.id !== id);
+                if (!navigator.onLine) {
+                    appState.pendingSyncQueue.push({ type: 'DELETE', id, timestamp: new Date().toISOString() });
+                }
+                saveLocalStorage();
+                renderTable();
+            }
+        }
+
+        function formatDateBR(dateStr) {
+            if (!dateStr) return '';
+            const parts = dateStr.split('-');
+            if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            return dateStr;
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('activities-table-body');
+            const searchVal = document.getElementById('search-input').value.toLowerCase();
+            const userName = appState.currentUser;
+            
+            let list = getChronologicalActivities(userName);
+
+            if (searchVal) {
+                list = list.filter(a => (a.atividades_descricao || '').toLowerCase().includes(searchVal));
+            }
+
+            if (list.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="23" class="p-8 text-center text-gray-400">
+                            <i class="fas fa-inbox text-3xl mb-2 block"></i>
+                            Nenhuma atividade na fila 5+ da base de dados de ${escapeHtml(userName)}.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            let html = '';
+            list.forEach((item, index) => {
+                const rowNum = index + 5;
+                const checkCell = (val) => val ? `<span class="text-emerald-600 font-bold">x</span>` : `<span class="text-gray-200">-</span>`;
+
+                html += `
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="p-2 border-r border-gray-200 text-center font-mono text-gray-400 bg-gray-50">${rowNum}</td>
+                        <td class="p-2 border-r border-gray-200 text-center font-medium">${formatDateBR(item.data)}</td>
+                        <td class="p-2 border-r border-gray-200 text-center">${escapeHtml(item.tecnico)}</td>
+                        
+                        <td class="p-1 border-r border-gray-200 text-center">${checkCell(item.categorias?.dc?.ar)}</td>
+                        <td class="p-1 border-r border-gray-200 text-center">${checkCell(item.categorias?.dc?.energia)}</td>
+                        <td class="p-1 border-r border-gray-200 text-center">${checkCell(item.categorias?.dc?.cabeamento)}</td>
+                        <td class="p-1 border-r border-gray-200 text-center">${checkCell(item.categorias?.dc?.preventivo)}</td>
+                        <td class="p-1 border-r border-gray-200 text-center">${checkCell(item.categorias?.dc?.mobiliario)}</td>
+                        <td class="p-1 border-r border-gray-200 text-center">${checkCell(item.categorias?.dc?.infraestrutura)}</td>
+                        
+                        <td class="p-1 border-r border-gray-200 text-center">${checkCell(item.categorias?.predio?.ar)}</td>
+                        <td class="p-1 border-r border-gray-200 text-center">${checkCell(item.categorias?.predio?.energia)}</td>
+                        <td class="p-1 border-r border-gray-200 text-center">${checkCell(item.categorias?.predio?.cabeamento)}</td>
+                        <td class="p-1 border-r border-gray-200 text-center">${checkCell(item.categorias?.predio?.hidraulica)}</td>
+                        <td class="p-1 border-r border-gray-200 text-center">${checkCell(item.categorias?.predio?.mobiliario)}</td>
+                        <td class="p-1 border-r border-gray-200 text-center">${checkCell(item.categorias?.predio?.infraestrutura)}</td>
+                        
+                        <td class="p-1 border-r border-gray-200 text-center">${checkCell(item.categorias?.tipo_atividade?.preditiva)}</td>
+                        <td class="p-1 border-r border-gray-200 text-center">${checkCell(item.categorias?.tipo_atividade?.preventiva)}</td>
+                        <td class="p-1 border-r border-gray-200 text-center">${checkCell(item.categorias?.tipo_atividade?.corretiva)}</td>
+                        <td class="p-1 border-r border-gray-200 text-center">${checkCell(item.categorias?.tipo_atividade?.implantacao)}</td>
+                        
+                        <td class="p-2 border-r border-gray-200 text-center font-mono">${escapeHtml(item.tempo_atividade?.inicio)}</td>
+                        <td class="p-2 border-r border-gray-200 text-center font-mono">${escapeHtml(item.tempo_atividade?.fim)}</td>
+                        <td class="p-2 border-r border-gray-200 whitespace-normal break-words">${escapeHtml(item.atividades_descricao)}</td>
+                        
+                        <td class="p-2 text-center">
+                            <div class="flex items-center justify-center gap-1">
+                                <button onclick="editActivity('${item.id}')" class="text-blue-600 hover:text-blue-800 p-1" title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="deleteActivity('${item.id}')" class="text-red-500 hover:text-red-700 p-1" title="Excluir">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        function buildSheetDataForUser(userName) {
+            const list = getChronologicalActivities(userName);
+            const sheetData = [];
+
+            BASE_HEADER_STRUCTURE.forEach(row => sheetData.push([...row]));
+
+            list.forEach(item => {
+                sheetData.push([
+                    formatDateBR(item.data),
+                    item.tecnico || '',
+                    item.categorias?.dc?.ar ? 'x' : '',
+                    item.categorias?.dc?.energia ? 'x' : '',
+                    item.categorias?.dc?.cabeamento ? 'x' : '',
+                    item.categorias?.dc?.preventivo ? 'x' : '',
+                    item.categorias?.dc?.mobiliario ? 'x' : '',
+                    item.categorias?.dc?.infraestrutura ? 'x' : '',
+                    item.categorias?.predio?.ar ? 'x' : '',
+                    item.categorias?.predio?.energia ? 'x' : '',
+                    item.categorias?.predio?.cabeamento ? 'x' : '',
+                    item.categorias?.predio?.hidraulica ? 'x' : '',
+                    item.categorias?.predio?.mobiliario ? 'x' : '',
+                    item.categorias?.predio?.infraestrutura ? 'x' : '',
+                    item.categorias?.tipo_atividade?.preditiva ? 'x' : '',
+                    item.categorias?.tipo_atividade?.preventiva ? 'x' : '',
+                    item.categorias?.tipo_atividade?.corretiva ? 'x' : '',
+                    item.categorias?.tipo_atividade?.implantacao ? 'x' : '',
+                    item.tempo_atividade?.inicio || '',
+                    item.tempo_atividade?.fim || '',
+                    item.atividades_descricao || ''
+                ]);
+            });
+
+            return sheetData;
+        }
+
+        function exportToGoogleSheetsFormat() {
+            const userName = appState.currentUser;
+            const list = getChronologicalActivities(userName);
+
+            if (list.length === 0) {
+                alert("Não há dados registrados na base deste técnico para exportar.");
+                return;
+            }
+
+            const now = new Date();
+            const monthNames = ["Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+            const fileName = `${userName}_${monthNames[now.getMonth()]}_${now.getFullYear()}.xlsx`;
+
+            const sheetData = buildSheetDataForUser(userName);
+            const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, userName.substring(0, 31));
+
+            XLSX.writeFile(workbook, fileName);
+        }
+
+        function exportAllTechniciansToSingleExcel() {
+            if (!appState.users || appState.users.length === 0) {
+                alert("Não há técnicos cadastrados para exportar.");
+                return;
+            }
+
+            const now = new Date();
+            const monthNames = ["Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+            const fileName = `RaDcompleto_${monthNames[now.getMonth()]}_${now.getFullYear()}.xlsx`;
+
+            const workbook = XLSX.utils.book_new();
+
+            appState.users.forEach(user => {
+                const sheetData = buildSheetDataForUser(user.name);
+                const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+                XLSX.utils.book_append_sheet(workbook, worksheet, user.name.substring(0, 30));
+            });
+
+            XLSX.writeFile(workbook, fileName);
+        }
+
+        window.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
